@@ -3,6 +3,8 @@ const ctx = canvas.getContext("2d");
 const gameOverText = document.getElementById("game-over");
 const restartButton = document.getElementById("restart");
 
+const GROUND_Y = 150;
+
 // Mobile buttons
 const jumpBtn = document.getElementById("jump-btn");
 const duckBtn = document.getElementById("duck-btn");
@@ -12,300 +14,327 @@ const jumpSound = new Audio("sounds/jump.wav");
 const duckSound = new Audio("sounds/duck.wav");
 const gameOverSound = new Audio("sounds/gameover.wav");
 
-let trex = {
+let player = {
   x: 50,
-  y: 160,
+  y: GROUND_Y,
   width: 20,
-  height: 40,
+  height: 44,
   dy: 0,
   isJumping: false,
   isDucking: false,
-  legFrame: 0,
+  frame: 0,
 };
 
-let gravity = 0.7;
+let gravity = 0.6;
 let obstacles = [];
 let birds = [];
 let score = 0;
+let highScore = 0;
 let gameRunning = true;
-let speed = 5;
+let speed = 6;
+let frameCount = 0;
 
-function drawHuman() {
-  trex.legFrame = (trex.legFrame + 1) % 40;
-  let stride = Math.sin((trex.legFrame / 40) * Math.PI * 2) * 0.9;
+function drawPlayer() {
+  ctx.strokeStyle = "#535353";
+  ctx.lineWidth = 3;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
 
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 2;
+  frameCount++;
+  let legSwing = Math.sin(frameCount * 0.15) * 8;
+  let armSwing = -Math.sin(frameCount * 0.15) * 6;
 
-  // Body
-  ctx.beginPath();
-  ctx.moveTo(trex.x + 10, trex.y + trex.height - 10);
-  ctx.lineTo(trex.x + 10, trex.y + trex.height - 30);
-  ctx.stroke();
+  let x = player.x + 10;
+  let y = player.y;
+  let isDuck = player.isDucking && !player.isJumping;
 
-  let legLength = 12;
-  let hipX = trex.x + 10;
-  let hipY = trex.y + trex.height - 10;
+  if (isDuck) {
+    ctx.beginPath();
+    ctx.arc(x + 8, y + 24, 5, 0, Math.PI * 2);
+    ctx.stroke();
 
-  let leftLegAngle = Math.PI / 2 + stride;
-  ctx.beginPath();
-  ctx.moveTo(hipX, hipY);
-  ctx.lineTo(
-    hipX - Math.sin(leftLegAngle) * legLength,
-    hipY + Math.cos(leftLegAngle) * legLength
-  );
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 8, y + 29);
+    ctx.lineTo(x, y + 35);
+    ctx.stroke();
 
-  let rightLegAngle = Math.PI / 2 - stride;
-  ctx.beginPath();
-  ctx.moveTo(hipX, hipY);
-  ctx.lineTo(
-    hipX + Math.sin(rightLegAngle) * legLength,
-    hipY + Math.cos(rightLegAngle) * legLength
-  );
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(x + 2, y + 32);
+    ctx.lineTo(x - 8, y + 36);
+    ctx.moveTo(x - 2, y + 32);
+    ctx.lineTo(x - 10, y + 34);
+    ctx.stroke();
 
-  // Arms
-  ctx.beginPath();
-  let armLength = 15;
-  if (trex.isDucking) {
-    ctx.moveTo(trex.x + 10, trex.y + trex.height - 20);
-    ctx.lineTo(trex.x, trex.y + trex.height - 10);
-    ctx.moveTo(trex.x + 10, trex.y + trex.height - 20);
-    ctx.lineTo(trex.x + 20, trex.y + trex.height - 10);
+    ctx.beginPath();
+    ctx.moveTo(x, y + 35);
+    ctx.lineTo(x - 2, y + 40);
+    ctx.lineTo(x - 8, y + 42);
+    ctx.moveTo(x, y + 35);
+    ctx.lineTo(x + 2, y + 40);
+    ctx.lineTo(x + 8, y + 42);
+    ctx.stroke();
   } else {
-    ctx.moveTo(trex.x + 10, trex.y + trex.height - 25);
-    ctx.lineTo(trex.x, trex.y + trex.height - 20);
-    ctx.moveTo(trex.x + 10, trex.y + trex.height - 25);
-    ctx.lineTo(trex.x + 20, trex.y + trex.height - 20);
-  }
-  ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y + 8, 6, 0, Math.PI * 2);
+    ctx.stroke();
 
-  // Head
-  ctx.beginPath();
-  ctx.arc(trex.x + 10, trex.y + trex.height - 35, 5, 0, Math.PI * 2);
-  ctx.fillStyle = "black";
-  ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x, y + 14);
+    ctx.lineTo(x, y + 28);
+    ctx.stroke();
+
+    if (!player.isJumping) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 18);
+      ctx.lineTo(x - 6, y + 24 + armSwing);
+      ctx.moveTo(x, y + 18);
+      ctx.lineTo(x + 6, y + 24 - armSwing);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 18);
+      ctx.lineTo(x - 7, y + 22);
+      ctx.moveTo(x, y + 18);
+      ctx.lineTo(x + 7, y + 22);
+      ctx.stroke();
+    }
+
+    if (!player.isJumping) {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 28);
+      ctx.lineTo(x - 4 + legSwing * 0.3, y + 36);
+      ctx.lineTo(x - 2 + legSwing * 0.5, y + 44);
+      ctx.moveTo(x, y + 28);
+      ctx.lineTo(x + 4 - legSwing * 0.3, y + 36);
+      ctx.lineTo(x + 2 - legSwing * 0.5, y + 44);
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 28);
+      ctx.lineTo(x - 3, y + 36);
+      ctx.lineTo(x - 2, y + 44);
+      ctx.moveTo(x, y + 28);
+      ctx.lineTo(x + 3, y + 36);
+      ctx.lineTo(x + 2, y + 44);
+      ctx.stroke();
+    }
+  }
 }
 
+
 function drawObstacles() {
-  ctx.fillStyle = "green";
-  obstacles.forEach((stack) => {
-    stack.blocks.forEach((block) => {
-      ctx.fillRect(block.x, block.y, block.width, block.height);
-    });
+  ctx.fillStyle = "#535353";
+  obstacles.forEach((obs) => {
+    obs.parts.forEach(part => ctx.fillRect(part.x, part.y, part.width, part.height));
   });
 }
 
 function drawBirds() {
+  ctx.fillStyle = "#535353";
   birds.forEach((bird) => {
-    ctx.save();
-    ctx.translate(bird.x, bird.y);
-    ctx.fillStyle = "brown";
-    ctx.beginPath();
-    ctx.ellipse(0, 0, 12, 6, 0, 0, Math.PI * 2);
-    ctx.fill();
-
-    ctx.strokeStyle = "black";
-    ctx.beginPath();
-    ctx.moveTo(-8, 0);
-    ctx.lineTo(-16, bird.wingUp ? -8 : 8);
-    ctx.moveTo(8, 0);
-    ctx.lineTo(16, bird.wingUp ? -8 : 8);
-    ctx.stroke();
-    ctx.restore();
+    let wingUp = Math.floor(frameCount / 8) % 2 === 0;
+    ctx.fillRect(bird.x + 4, bird.y + 6, 16, 8);
+    if (wingUp) ctx.fillRect(bird.x, bird.y, 24, 4);
+    else ctx.fillRect(bird.x, bird.y + 10, 24, 4);
+    ctx.fillRect(bird.x + 20, bird.y + 8, 4, 4);
   });
 }
 
 function spawnObstacle() {
-  if (Math.random() < 0.7) {
-    let groupType = Math.random();
-    let blocks = [];
+  if (Math.random() < 0.8) {
+    let type = Math.random();
+    let parts = [];
     let baseX = canvas.width;
-    let blockHeight = 75 + Math.floor(Math.random() * 30);
 
-    if (groupType < 0.5) {
-      blocks.push({ x: baseX, y: 180, width: 16, height: blockHeight });
-    } else if (groupType < 0.8) {
-      blocks.push({ x: baseX, y: 180, width: 16, height: blockHeight });
-      blocks.push({ x: baseX + 20, y: 180, width: 16, height: blockHeight });
+    if (type < 0.4) parts.push({x: baseX, y: GROUND_Y + 10, width: 12, height: 34});
+    else if (type < 0.7) parts.push({x: baseX, y: GROUND_Y, width: 12, height: 44});
+    else if (type < 0.85) {
+      parts.push({x: baseX, y: GROUND_Y + 10, width: 12, height: 34});
+      parts.push({x: baseX + 16, y: GROUND_Y + 10, width: 12, height: 34});
     } else {
-      blocks.push({ x: baseX - 20, y: 180, width: 16, height: blockHeight });
-      blocks.push({ x: baseX, y: 180, width: 16, height: blockHeight + 10 });
-      blocks.push({ x: baseX + 20, y: 180, width: 16, height: blockHeight });
+      parts.push({x: baseX, y: GROUND_Y + 10, width: 12, height: 34});
+      parts.push({x: baseX + 16, y: GROUND_Y, width: 12, height: 44});
+      parts.push({x: baseX + 32, y: GROUND_Y + 10, width: 12, height: 34});
     }
-    obstacles.push({ blocks });
+    obstacles.push({parts});
   } else {
-    const high = Math.random() < 0.5;
-    birds.push({
-      x: canvas.width,
-      y: high ? 140 : 190,
-      width: 24,
-      height: 12,
-      wingUp: Math.random() < 0.5,
-      type: high ? "high" : "low",
-    });
+    let height = Math.random() < 0.5 ? GROUND_Y - 20 : GROUND_Y - 50;
+    birds.push({x: canvas.width, y: height, width: 24, height: 14});
   }
 }
 
+
 function updateObstacles() {
-  obstacles.forEach((stack) => {
-    stack.blocks.forEach((block) => (block.x -= speed));
-  });
-  obstacles = obstacles.filter((stack) =>
-    stack.blocks.some((block) => block.x + block.width > 0)
-  );
+  obstacles.forEach(obs => obs.parts.forEach(part => (part.x -= speed)));
+  obstacles = obstacles.filter(obs => obs.parts.some(part => part.x + part.width > 0));
 }
 
 function updateBirds() {
-  birds.forEach((bird) => {
-    bird.x -= speed + 1;
-    bird.wingUp = !bird.wingUp;
-  });
-  birds = birds.filter((bird) => bird.x + bird.width > 0);
+  birds.forEach(bird => bird.x -= speed);
+  birds = birds.filter(bird => bird.x + bird.width > 0);
 }
 
+
 function checkCollision() {
-  for (let stack of obstacles) {
-    for (let block of stack.blocks) {
+  let px = player.x + 4;
+  let py = player.y + (player.isDucking ? 20 : 4);
+  let pw = player.width - 8;
+  let ph = player.isDucking ? 24 : 40;
+
+  for (let obs of obstacles) {
+    for (let part of obs.parts) {
       if (
-        trex.x < block.x + block.width &&
-        trex.x + trex.width > block.x &&
-        trex.y + trex.height > block.y &&
-        trex.y < block.y + block.height
-      ) {
-        return true;
-      }
+        px < part.x + part.width - 4 &&
+        px + pw > part.x + 4 &&
+        py < part.y + part.height - 4 &&
+        py + ph > part.y + 4
+      ) return true;
     }
   }
 
   for (let bird of birds) {
     if (
-      trex.x < bird.x + bird.width &&
-      trex.x + trex.width > bird.x &&
-      trex.y < bird.y + bird.height &&
-      trex.y + trex.height > bird.y
-    ) {
-      if (
-        (bird.type === "high" && !trex.isDucking) ||
-        (bird.type === "low" && !trex.isJumping)
-      ) {
-        return true;
-      }
-    }
+      px < bird.x + bird.width - 4 &&
+      px + pw > bird.x + 4 &&
+      py < bird.y + bird.height - 4 &&
+      py + ph > bird.y + 4
+    ) return true;
   }
   return false;
 }
 
-function updateTrex() {
-  if (trex.isJumping) {
-    trex.dy += gravity;
-    trex.y += trex.dy;
-    if (trex.y >= 160) {
-      trex.y = 160;
-      trex.isJumping = false;
-      trex.dy = 0;
+
+function updatePlayer() {
+  if (player.isJumping) {
+    player.dy += gravity;
+    player.y += player.dy;
+    if (player.y >= GROUND_Y) {
+      player.y = GROUND_Y;
+      player.isJumping = false;
+      player.dy = 0;
     }
   }
 }
 
-function updateScore() {
-  score += 1;
-  ctx.fillStyle = "black";
-  ctx.font = "16px Arial";
-  ctx.fillText(`Score: ${score}`, 700, 20);
-  speed = 5 + score / 400;
-}
-
-function endGame() {
-  gameRunning = false;
-  gameOverText.style.display = "block";
-  restartButton.style.display = "block";
-  gameOverSound.play();
-}
-
-function gameLoop() {
-  if (!gameRunning) return;
-
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  ctx.strokeStyle = "#888";
+function drawGround() {
+  ctx.strokeStyle = "#535353";
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(0, 200);
-  ctx.lineTo(canvas.width, 200);
+  ctx.moveTo(0, GROUND_Y + 44);
+  ctx.lineTo(canvas.width, GROUND_Y + 44);
   ctx.stroke();
 
-  drawHuman();
+  let offset = (frameCount * speed / 2) % 20;
+  for (let i = -offset; i < canvas.width; i += 20) {
+    ctx.fillStyle = "#535353";
+    ctx.fillRect(i, GROUND_Y + 45, 2, 2);
+  }
+}
+function drawScore() {
+  score++;
+  let displayScore = Math.floor(score / 10);
+  if (displayScore > highScore) highScore = displayScore;
+
+  ctx.fillStyle = "#535353";
+  ctx.font = "16px monospace";
+  ctx.textAlign = "right";
+  ctx.fillText("HI " + String(highScore).padStart(5, "0"), canvas.width - 10, 30);
+  ctx.fillText(String(displayScore).padStart(5, "0"), canvas.width - 10, 50);
+}
+
+function drawClouds() {
+  let cloudX = (frameCount * 0.5) % (canvas.width + 100) - 100;
+  ctx.fillStyle = "#535353";
+  ctx.fillRect(cloudX, 30, 30, 4);
+  ctx.fillRect(cloudX + 10, 26, 10, 4);
+  ctx.fillRect(cloudX + 20, 26, 10, 4);
+
+  let cloudX2 = (frameCount * 0.3 + 400) % (canvas.width + 100) - 100;
+  ctx.fillRect(cloudX2, 50, 40, 4);
+  ctx.fillRect(cloudX2 + 10, 46, 10, 4);
+  ctx.fillRect(cloudX2 + 25, 46, 10, 4);
+}
+function gameLoop() {
+  if (!gameRunning) return;
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  drawClouds();
+  drawGround();
+  drawPlayer();
   drawObstacles();
   drawBirds();
-  updateTrex();
+  drawScore();
+  updatePlayer();
   updateObstacles();
   updateBirds();
-  updateScore();
 
   if (checkCollision()) {
-    endGame();
+    gameRunning = false;
+    gameOverText.style.display = "block";
+    restartButton.style.display = "block";
   }
 
+  speed = 6 + Math.floor(score / 1000) * 0.5;
   requestAnimationFrame(gameLoop);
 }
 
 function resetGame() {
-  trex = {
+  player = {
     x: 50,
-    y: 160,
+    y: GROUND_Y,
     width: 20,
-    height: 40,
+    height: 44,
     dy: 0,
     isJumping: false,
     isDucking: false,
-    legFrame: 0,
+    frame: 0,
   };
   obstacles = [];
   birds = [];
   score = 0;
-  speed = 5;
+  speed = 6;
+  frameCount = 0;
   gameRunning = true;
   gameOverText.style.display = "none";
   restartButton.style.display = "none";
   gameLoop();
 }
-
 // Keyboard controls
 document.addEventListener("keydown", (e) => {
-  if (e.code === "Space" && !trex.isJumping) {
-    trex.isJumping = true;
-    trex.dy = -12;
+  if (e.code === "Space" && !player.isJumping) {
+    player.isJumping = true;
+    player.dy = -12;
     jumpSound.play();
+    e.preventDefault();
   }
-  if (e.code === "ArrowDown" && !trex.isDucking) {
-    trex.isDucking = true;
-    duckSound.play();
+  if (e.code === "ArrowDown") {
+    player.isDucking = true;
+     duckSound.play();
+    e.preventDefault();
   }
 });
 
 document.addEventListener("keyup", (e) => {
   if (e.code === "ArrowDown") {
-    trex.isDucking = false;
+    player.isDucking = false;
   }
 });
 
 // Mobile controls
 jumpBtn.addEventListener("touchstart", () => {
-  if (!trex.isJumping) {
-    trex.isJumping = true;
-    trex.dy = -12;
+  if (!player.isJumping) {
+    player.isJumping = true;
+    player.dy = -12;
     jumpSound.play();
   }
 });
 
 duckBtn.addEventListener("touchstart", () => {
-  trex.isDucking = true;
+  player.isDucking = true;
   duckSound.play();
 });
 
 duckBtn.addEventListener("touchend", () => {
-  trex.isDucking = false;
+  player.isDucking = false;
 });
 
 // Restart button
@@ -314,3 +343,4 @@ restartButton.addEventListener("click", resetGame);
 // Spawn obstacles and start game loop
 setInterval(spawnObstacle, 1500);
 gameLoop();
+
